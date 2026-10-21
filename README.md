@@ -4,6 +4,8 @@ The careers site for **Caldova**, an AI-native pharmaceutical company. Browse op
 
 This is the sample application for the **GitHub Copilot CLI** workshop. It's a deliberately small, realistic app: job postings are Markdown content, and the only database-backed feature is the apply flow.
 
+On the home page, select a department, a location, or both to narrow the roles immediately. Both selections must match exactly; location options use the full posting labels, including remote locations. Options always include all posting values. **Reset filters** restores the full newest-first list. Filters are not saved or added to the URL, and the full listing remains available without JavaScript.
+
 > [!NOTE]
 > Caldova is a fictional company created for demonstration and training purposes. The roles, locations, and applications in this app are not real.
 
@@ -43,7 +45,7 @@ npm run dev
 
 - `src/content/jobs/` — job postings (Markdown + frontmatter)
 - `src/content.config.ts` — content collection schema
-- `src/lib/jobs.ts` — pure helpers over `Job[]` (sorting, formatting)
+- `src/lib/jobs.ts` — pure helpers over `Job[]` (filtering, filter options, sorting, formatting)
 - `src/lib/applications.ts` — application validation schema + insert helper
 - `src/lib/db.ts` — Drizzle/libSQL client for the `applications` table
 - `src/pages/` — `index.astro` (listing), `roles/[slug].astro` (detail + apply form), `api/apply.ts` (on-demand endpoint), `thanks.astro`, `about.astro`, `404.astro`
@@ -68,7 +70,7 @@ This repository is a GitHub template. When you create a new repository from it, 
 
 The workflow only runs on repositories created from the template (the `if: ${{ !github.event.repository.is_template }}` guard skips the template itself), and after creating the issues it removes itself and the `.github/bootstrap-issues/` folder in a cleanup commit so it never runs again.
 
-The starter intentionally leaves location labels off role cards while retaining location data and detail-page labels for the workshop warm-up. The **Filter roles by department and location** issue (`workshop:filtering`) starts the longer feature exercise. Filtering, the TSDoc instruction addition, the `quality-checks` skill's results formatting, and `.github/agents/qa.agent.md` are left for learners to implement.
+The starter intentionally leaves location labels off role cards while retaining location data and detail-page labels for the workshop warm-up. The **Filter roles by department and location** issue (`workshop:filtering`) starts the longer feature exercise; department and location filtering is now implemented. The TSDoc instruction addition, the `quality-checks` skill's results formatting, and `.github/agents/qa.agent.md` are left for learners to implement.
 
 The only bundled skill is `.github/skills/quality-checks/SKILL.md`. The starter includes no custom agents or MCP server configuration: learners configure Playwright MCP in Copilot CLI and create the QA agent during the workshop. GitHub MCP is built into Copilot CLI and needs no repository server configuration.
 

@@ -1,0 +1,145 @@
+---
+import RoleCard from './RoleCard.astro';
+import EmptyState from './EmptyState.astro';
+import { getDepartments, getLocations } from '../lib/jobs';
+import type { Job } from '../types/job';
+
+/** Build-time data for a static listing enhanced with browser-only filtering. */
+interface Props {
+  /** Plain jobs in the order they should appear in the listing. */
+  jobs: Job[];
+}
+
+const { jobs } = Astro.props;
+const departments = getDepartments(jobs);
+const locations = getLocations(jobs);
+const selectClass = 'w-full rounded-lg border border-slate-600 bg-slate-800 p-3 text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400';
+---
+
+{jobs.length === 0 ? (
+  <EmptyState text="There are no open roles right now. Check back soon." />
+) : (
+  <div class="role-listing" data-role-listing data-jobs={JSON.stringify(jobs)}>
+    <div class="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_auto] lg:items-end" data-filters hidden>
+      <label class="block text-sm font-medium text-slate-200">
+        <span class="mb-2 block">Department</span>
+        <select name="department" class={selectClass} data-testid="department-filter">
+          <option value="">All departments</option>
+          {departments.map((department) => <option value={department}>{department}</option>)}
+        </select>
+      </label>
+      <label class="block text-sm font-medium text-slate-200">
+        <span class="mb-2 block">Location</span>
+        <select name="location" class={selectClass} data-testid="location-filter">
+          <option value="">All locations</option>
+          {locations.map((location) => <option value={location}>{location}</option>)}
+        </select>
+      </label>
+      <button
+        type="button"
+        class="rounded-lg bg-blue-700 px-5 py-3 font-medium text-white hover:bg-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
+        data-testid="filters-reset"
+      >
+        Reset filters
+      </button>
+    </div>
+    <noscript>
+      <p class="mb-4 text-slate-300">All open roles are shown. Enable JavaScript to filter by department and location.</p>
+    </noscript>
+    <p class="mb-4 text-slate-300" role="status" aria-live="polite" aria-atomic="true" data-testid="roles-count">
+      Showing {jobs.length} {jobs.length === 1 ? 'role' : 'roles'}
+    </p>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6" data-testid="roles-grid">
+      {jobs.map((job) => <RoleCard job={job} />)}
+    </div>
+    <div data-no-matches hidden>
+      <EmptyState text="No roles match these filters. Try another selection or reset the filters." />
+    </div>
+  </div>
+)}
+
+<script>
+  import { filterJobs } from '../lib/jobs';
+  import type { Job } from '../types/job';
+
+  /**
+   * Validate the serialized data boundary before passing browser data to job helpers.
+   *
+   * @param value - An unknown entry parsed from the listing's job data attribute.
+   * @returns Whether the entry contains every required field of a plain Job.
+   */
+  function isJob(value: unknown): value is Job {
+    return typeof value === 'object' && value !== null &&
+      'slug' in value && typeof value.slug === 'string' &&
+      'title' in value && typeof value.title === 'string' &&
+      'department' in value && typeof value.department === 'string' &&
+      'location' in value && typeof value.location === 'string' &&
+      'type' in value && (value.type === 'Full-time' || value.type === 'Part-time' || value.type === 'Contract') &&
+      'remote' in value && typeof value.remote === 'boolean' &&
+      'postedDate' in value && typeof value.postedDate === 'string' &&
+      'summary' in value && typeof value.summary === 'string';
+  }
+
+  for (const listing of document.querySelectorAll<HTMLElement>('[data-role-listing]')) {
+    const serializedJobs = listing.dataset.jobs;
+    if (!serializedJobs) {
+      throw new Error('Role listing is missing its job data.');
+    }
+    const jobs: unknown = JSON.parse(serializedJobs);
+    if (!Array.isArray(jobs) || !jobs.every(isJob)) {
+      throw new Error('Role listing contains invalid job data.');
+    }
+
+    const controls = listing.querySelector<HTMLElement>('[data-filters]');
+    const department = listing.querySelector<HTMLSelectElement>('[name="department"]');
+    const location = listing.querySelector<HTMLSelectElement>('[name="location"]');
+    const reset = listing.querySelector<HTMLButtonElement>('[data-testid="filters-reset"]');
+    const status = listing.querySelector<HTMLElement>('[data-testid="roles-count"]');
+    const grid = listing.querySelector<HTMLElement>('[data-testid="roles-grid"]');
+    const emptyState = listing.querySelector<HTMLElement>('[data-no-matches]');
+    if (!controls || !department || !location || !reset || !status || !grid || !emptyState) {
+      throw new Error('Role listing is missing its filter controls or results.');
+    }
+    const cards = listing.querySelectorAll<HTMLAnchorElement>('[data-testid="role-card"]');
+
+    /**
+     * Apply both selections to the original jobs and synchronize cards, count, and
+     * empty state without replacing markup or moving keyboard focus.
+     */
+    const update = (): void => {
+      const matches = filterJobs(jobs, {
+        department: department.value,
+        location: location.value,
+      });
+      const matchingSlugs = new Set(matches.map((job) => job.slug));
+      for (const card of cards) {
+        card.hidden = !matchingSlugs.has(card.dataset.jobId ?? '');
+      }
+      grid.hidden = matches.length === 0;
+      emptyState.hidden = matches.length !== 0;
+      status.textContent = `Showing ${matches.length} ${matches.length === 1 ? 'role' : 'roles'}`;
+    };
+
+    /**
+     * Restore unrestricted selections and the full listing, including on initial
+     * load when the browser may have restored previous control values.
+     */
+    const resetFilters = (): void => {
+      department.value = '';
+      location.value = '';
+      update();
+    };
+
+    department.addEventListener('change', update);
+    location.addEventListener('change', update);
+    reset.addEventListener('click', resetFilters);
+    resetFilters();
+    controls.hidden = false;
+  }
+</script>
+
+<style>
+  .role-listing :global([hidden]) {
+    display: none !important;
+  }
+</style>
